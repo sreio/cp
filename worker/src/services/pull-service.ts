@@ -54,22 +54,22 @@ export async function pullData(
       let drawData: DrawData | null = null;
       let usedAdapter = '';
 
-      // 尝试使用第三方 API
+      // 尝试使用官方 API
       try {
         const adapter = new ThirdPartyAdapter();
         drawData = await adapter.fetchByIssue(type, issue);
-        usedAdapter = 'third_party';
+        usedAdapter = 'official';
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : '未知错误';
-        console.warn(`第三方 API 失败，尝试使用本地模拟数据: ${errorMsg}`);
+        console.warn(`官方 API 失败，使用本地模拟数据: ${errorMsg}`);
 
         // 回退到本地模拟数据
         try {
           const mockAdapter = new LocalMockAdapter();
           drawData = await mockAdapter.fetchByIssue(type, issue);
           usedAdapter = 'local_mock';
-          if (!result.errors.some(e => e.includes('注意:'))) {
-            result.errors.push(`注意: 使用本地模拟数据（第三方 API 不可用）`);
+          if (!result.errors.some(e => e.includes('提示:'))) {
+            result.errors.push(`提示: 官方 API 不可用（${errorMsg}），已使用模拟数据`);
           }
         } catch (mockErr) {
           result.errors.push(`期号 ${issue}: ${errorMsg}`);
@@ -109,24 +109,24 @@ export async function pullByDateRange(
   let draws: DrawData[] = [];
   let usedAdapter = '';
 
-  // 尝试使用第三方 API
+  // 尝试使用官方 API
   try {
     const adapter = new ThirdPartyAdapter();
     draws = await adapter.fetchByDateRange(type, startDate, endDate);
-    usedAdapter = 'third_party';
+    usedAdapter = 'official';
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : '未知错误';
-    console.warn(`第三方 API 失败，尝试使用本地模拟数据: ${errorMsg}`);
+    console.warn(`官方 API 失败，使用本地模拟数据: ${errorMsg}`);
 
     // 回退到本地模拟数据
     try {
       const mockAdapter = new LocalMockAdapter();
       draws = await mockAdapter.fetchByDateRange(type, startDate, endDate);
       usedAdapter = 'local_mock';
-      result.errors.push(`注意: 使用本地模拟数据（第三方 API 不可用: ${errorMsg}）`);
+      result.errors.push(`提示: 官方 API 不可用（${errorMsg}），已使用模拟数据`);
     } catch (mockErr) {
       result.success = false;
-      result.errors.push(`拉取日期范围失败: ${errorMsg}`);
+      result.errors.push(`拉取失败: ${errorMsg}`);
       return result;
     }
   }
