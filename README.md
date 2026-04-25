@@ -2,7 +2,7 @@
 
 Vue 3 + Vite 构建的彩票助手前端，部署在 Cloudflare Pages。
 
-[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/OWNER/cp/tree/cp-frontend)
+[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/sreio/cp/tree/cp-frontend)
 
 ## 配置
 
