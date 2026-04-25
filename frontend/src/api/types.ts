@@ -55,3 +55,12 @@ export interface WinningLocation {
   win_count: number;
   win_amount: number | null;
 }
+
+export interface PrizeLevelDef {
+  level: string;
+  front_match: string;
+  back_match: string;
+  description: string;
+  prize_pool_under_800m: string;
+  prize_pool_over_800m: string;
+}

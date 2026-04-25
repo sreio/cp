@@ -1,29 +1,17 @@
 <template>
   <div id="app">
     <AppHeader v-model:lottery-type="currentType" />
-    <SalesBanner :type="currentType" />
-    <main class="main-content">
-      <div class="left-panel">
-        <LatestDraw :type="currentType" />
-        <RecentDrawsTable :type="currentType" />
-      </div>
-      <div class="right-panel">
-        <QuickActions :type="currentType" />
-      </div>
-    </main>
+    <router-view :lottery-type="currentType" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, provide } from 'vue';
 import type { LotteryType } from './api/types';
 import AppHeader from './components/AppHeader.vue';
-import SalesBanner from './components/SalesBanner.vue';
-import LatestDraw from './components/LatestDraw.vue';
-import RecentDrawsTable from './components/RecentDrawsTable.vue';
-import QuickActions from './components/QuickActions.vue';
 
 const currentType = ref<LotteryType>('ssq');
+provide('lotteryType', currentType);
 </script>
 
 <style>
@@ -37,11 +25,5 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 16px;
-}
-.main-content {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 16px;
-  margin-top: 16px;
 }
 </style>
