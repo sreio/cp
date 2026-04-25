@@ -1,0 +1,134 @@
+<h2>数据库设计 v2</h2>
+<p class="subtitle">补充中奖地区、信息来源、号码查询功能</p>
+
+<div class="section">
+  <h3>开奖记录表（增加字段）</h3>
+  <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 14px;">
+    <pre style="color: #d4d4d4; margin: 0; line-height: 1.6;">
+<span style="color: #569cd6;">-- 双色球开奖记录（更新）</span>
+<span style="color: #c586c0;">CREATE TABLE</span> <span style="color: #4ec9b0;">ssq_draws</span> (
+  <span style="color: #9cdcfe;">id</span>          <span style="color: #569cd6;">INTEGER PRIMARY KEY AUTOINCREMENT</span>,
+  <span style="color: #9cdcfe;">issue</span>       <span style="color: #569cd6;">TEXT NOT NULL UNIQUE</span>,
+  <span style="color: #9cdcfe;">draw_date</span>   <span style="color: #569cd6;">DATE NOT NULL</span>,
+  <span style="color: #9cdcfe;">week</span>        <span style="color: #569cd6;">TEXT</span>,                        <span style="color: #6a9955;">-- 星期几 "二"/"四"/"日"</span>
+  <span style="color: #9cdcfe;">red_balls</span>   <span style="color: #569cd6;">TEXT NOT NULL</span>,               <span style="color: #6a9955;">-- 红球 "[01,02,03,04,05,06]"</span>
+  <span style="color: #9cdcfe;">blue_ball</span>   <span style="color: #569cd6;">TEXT NOT NULL</span>,
+  <span style="color: #9cdcfe;">pool_amount</span> <span style="color: #569cd6;">DECIMAL(15,2)</span>,
+  <span style="color: #9cdcfe;">sales_amount</span> <span style="color: #569cd6;">DECIMAL(15,2)</span>,
+  <span style="color: #9cdcfe;">source</span>      <span style="color: #569cd6;">TEXT DEFAULT 'official'</span>,      <span style="color: #6a9955;">-- "official" | "third_party" | "manual"</span>
+  <span style="color: #9cdcfe;">created_at</span>  <span style="color: #569cd6;">DATETIME DEFAULT CURRENT_TIMESTAMP</span>,
+  <span style="color: #9cdcfe;">updated_at</span>  <span style="color: #569cd6;">DATETIME DEFAULT CURRENT_TIMESTAMP</span>
+);
+
+<span style="color: #569cd6;">-- 大乐透开奖记录（更新）</span>
+<span style="color: #c586c0;">CREATE TABLE</span> <span style="color: #4ec9b0;">dlt_draws</span> (
+  <span style="color: #9cdcfe;">id</span>          <span style="color: #569cd6;">INTEGER PRIMARY KEY AUTOINCREMENT</span>,
+  <span style="color: #9cdcfe;">issue</span>       <span style="color: #569cd6;">TEXT NOT NULL UNIQUE</span>,
+  <span style="color: #9cdcfe;">draw_date</span>   <span style="color: #569cd6;">DATE NOT NULL</span>,
+  <span style="color: #9cdcfe;">week</span>        <span style="color: #569cd6;">TEXT</span>,                        <span style="color: #6a9955;">-- 星期几 "一"/"三"/"六"</span>
+  <span style="color: #9cdcfe;">front_zone</span>  <span style="color: #569cd6;">TEXT NOT NULL</span>,
+  <span style="color: #9cdcfe;">back_zone</span>   <span style="color: #569cd6;">TEXT NOT NULL</span>,
+  <span style="color: #9cdcfe;">pool_amount</span> <span style="color: #569cd6;">DECIMAL(15,2)</span>,
+  <span style="color: #9cdcfe;">sales_amount</span> <span style="color: #569cd6;">DECIMAL(15,2)</span>,
+  <span style="color: #9cdcfe;">source</span>      <span style="color: #569cd6;">TEXT DEFAULT 'official'</span>,
+  <span style="color: #9cdcfe;">created_at</span>  <span style="color: #569cd6;">DATETIME DEFAULT CURRENT_TIMESTAMP</span>,
+  <span style="color: #9cdcfe;">updated_at</span>  <span style="color: #569cd6;">DATETIME DEFAULT CURRENT_TIMESTAMP</span>
+);
+    </pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>中奖地区表（新增）</h3>
+  <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 14px;">
+    <pre style="color: #d4d4d4; margin: 0; line-height: 1.6;">
+<span style="color: #569cd6;">-- 中奖地区详情</span>
+<span style="color: #c586c0;">CREATE TABLE</span> <span style="color: #4ec9b0;">winning_locations</span> (
+  <span style="color: #9cdcfe;">id</span>          <span style="color: #569cd6;">INTEGER PRIMARY KEY AUTOINCREMENT</span>,
+  <span style="color: #9cdcfe;">lottery_type</span> <span style="color: #569cd6;">TEXT NOT NULL</span>,              <span style="color: #6a9955;">-- "ssq" | "dlt"</span>
+  <span style="color: #9cdcfe;">issue</span>       <span style="color: #569cd6;">TEXT NOT NULL</span>,
+  <span style="color: #9cdcfe;">prize_level</span> <span style="color: #569cd6;">TEXT NOT NULL</span>,              <span style="color: #6a9955;">-- "一等奖"</span>
+  <span style="color: #9cdcfe;">location</span>    <span style="color: #569cd6;">TEXT NOT NULL</span>,              <span style="color: #6a9955;">-- "北京" | "广东" | ...</span>
+  <span style="color: #9cdcfe;">win_count</span>   <span style="color: #569cd6;">INTEGER NOT NULL</span>,           <span style="color: #6a9955;">-- 该地区中奖注数</span>
+  <span style="color: #9cdcfe;">win_amount</span>  <span style="color: #569cd6;">DECIMAL(15,2)</span>,             <span style="color: #6a9955;">-- 该地区总奖金</span>
+  <span style="color: #9cdcfe;">created_at</span>  <span style="color: #569cd6;">DATETIME DEFAULT CURRENT_TIMESTAMP</span>,
+  <span style="color: #569cd6;">FOREIGN KEY</span> (<span style="color: #9cdcfe;">lottery_type</span>, <span style="color: #9cdcfe;">issue</span>) <span style="color: #569cd6;">REFERENCES</span> <span style="color: #4ec9b0;">draws</span>(<span style="color: #9cdcfe;">type</span>, <span style="color: #9cdcfe;">issue</span>)
+);
+
+<span style="color: #569cd6;">-- 索引</span>
+<span style="color: #c586c0;">CREATE INDEX</span> <span style="color: #4ec9b0;">idx_winning_location</span> <span style="color: #569cd6;">ON</span> <span style="color: #4ec9b0;">winning_locations</span>(<span style="color: #9cdcfe;">lottery_type</span>, <span style="color: #9cdcfe;">issue</span>);
+<span style="color: #c586c0;">CREATE INDEX</span> <span style="color: #4ec9b0;">idx_winning_prize</span> <span style="color: #569cd6;">ON</span> <span style="color: #4ec9b0;">winning_locations</span>(<span style="color: #9cdcfe;">lottery_type</span>, <span style="color: #9cdcfe;">issue</span>, <span style="color: #9cdcfe;">prize_level</span>);
+    </pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>号码查询中奖功能设计</h3>
+  <div style="background: #2d2d2d; padding: 20px; border-radius: 8px;">
+    <h4 style="color: #569cd6; margin: 0 0 15px 0;">API 接口设计</h4>
+    <div style="background: #1e1e1e; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 13px;">
+      <pre style="color: #d4d4d4; margin: 0;">
+<span style="color: #6a9955;">// POST /api/lottery/check</span>
+<span style="color: #569cd6;">Request:</span>
+{
+  <span style="color: #9cdcfe;">"type"</span>: <span style="color: #ce9178;">"ssq"</span>,
+  <span style="color: #9cdcfe;">"numbers"</span>: {
+    <span style="color: #9cdcfe;">"red"</span>: [<span style="color: #b5cea8;">"01"</span>, <span style="color: #b5cea8;">"05"</span>, <span style="color: #b5cea8;">"10"</span>, <span style="color: #b5cea8;">"15"</span>, <span style="color: #b5cea8;">"20"</span>, <span style="color: #b5cea8;">"30"</span>],
+    <span style="color: #9cdcfe;">"blue"</span>: <span style="color: #b5cea8;">"03"</span>
+  },
+  <span style="color: #9cdcfe;">"issue_range"</span>: <span style="color: #b5cea8;">"last100"</span>  <span style="color: #6a9955;">// "last100" | "last50" | "all" | "2024001-2024100"</span>
+}
+
+<span style="color: #569cd6;">Response:</span>
+{
+  <span style="color: #9cdcfe;">"matches"</span>: [
+    {
+      <span style="color: #9cdcfe;">"issue"</span>: <span style="color: #ce9178;">"2024050"</span>,
+      <span style="color: #9cdcfe;">"draw_date"</span>: <span style="color: #ce9178;">"2024-03-05"</span>,
+      <span style="color: #9cdcfe;">"prize_level"</span>: <span style="color: #ce9178;">"三等奖"</span>,
+      <span style="color: #9cdcfe;">"prize_amount"</span>: <span style="color: #b5cea8;">3000</span>,
+      <span style="color: #9cdcfe;">"matched_numbers"</span>: {
+        <span style="color: #9cdcfe;">"red"</span>: [<span style="color: #b5cea8;">"01"</span>, <span style="color: #b5cea8;">"05"</span>, <span style="color: #b5cea8;">"10"</span>, <span style="color: #b5cea8;">"15"</span>, <span style="color: #b5cea8;">"20"</span>],
+        <span style="color: #9cdcfe;">"blue"</span>: <span style="color: #b5cea8;">"03"</span>
+      }
+    }
+  ],
+  <span style="color: #9cdcfe;">"summary"</span>: {
+    <span style="color: #9cdcfe;">"total_matches"</span>: <span style="color: #b5cea8;">1</span>,
+    <span style="color: #9cdcfe;">"total_prize"</span>: <span style="color: #b5cea8;">3000</span>,
+    <span style="color: #9cdcfe;">"best_match"</span>: <span style="color: #ce9178;">"三等奖"</span>
+  }
+}
+      </pre>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>数据来源追踪</h3>
+  <div style="background: #2d2d2d; padding: 20px; border-radius: 8px;">
+    <h4 style="color: #569cd6; margin: 0 0 15px 0;">source 字段说明</h4>
+    <table style="width: 100%; border-collapse: collapse; color: #d4d4d4;">
+      <tr style="border-bottom: 1px solid #404040;">
+        <td style="padding: 10px; font-weight: bold;">值</td>
+        <td style="padding: 10px; font-weight: bold;">说明</td>
+        <td style="padding: 10px; font-weight: bold;">使用场景</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #404040;">
+        <td style="padding: 10px;"><code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">official</code></td>
+        <td style="padding: 10px;">官方API</td>
+        <td style="padding: 10px;">最新开奖数据，实时获取</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #404040;">
+        <td style="padding: 10px;"><code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">third_party</code></td>
+        <td style="padding: 10px;">第三方API</td>
+        <td style="padding: 10px;">历史数据补全，批量导入</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px;"><code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">manual</code></td>
+        <td style="padding: 10px;">手动录入</td>
+        <td style="padding: 10px;">管理员手动添加或修正数据</td>
+      </tr>
+    </table>
+  </div>
+</div>

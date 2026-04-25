@@ -1,0 +1,152 @@
+<h2>手动拉取数据功能设计</h2>
+<p class="subtitle">支持按期号/日期范围拉取，智能冲突检测</p>
+
+<div class="section">
+  <h3>API 接口设计</h3>
+  <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 14px;">
+    <pre style="color: #d4d4d4; margin: 0; line-height: 1.6;">
+<span style="color: #6a9955;">// 1. 检查数据是否存在（预检查）</span>
+<span style="color: #569cd6;">POST /api/lottery/check-exists</span>
+{
+  <span style="color: #9cdcfe;">"type"</span>: <span style="color: #ce9178;">"ssq"</span>,
+  <span style="color: #9cdcfe;">"issues"</span>: [<span style="color: #ce9178;">"2024001"</span>, <span style="color: #ce9178;">"2024002"</span>, <span style="color: #ce9178;">"2024003"</span>]
+}
+
+<span style="color: #569cd6;">Response:</span>
+{
+  <span style="color: #9cdcfe;">"existing"</span>: [
+    {<span style="color: #9cdcfe;">"issue"</span>: <span style="color: #ce9178;">"2024001"</span>, <span style="color: #9cdcfe;">"source"</span>: <span style="color: #ce9178;">"official"</span>, <span style="color: #9cdcfe;">"draw_date"</span>: <span style="color: #ce9178;">"2024-01-02"</span>}
+  ],
+  <span style="color: #9cdcfe;">"missing"</span>: [<span style="color: #ce9178;">"2024002"</span>, <span style="color: #ce9178;">"2024003"</span>]
+}
+
+<span style="color: #6a9955;">// 2. 拉取数据（带冲突处理）</span>
+<span style="color: #569cd6;">POST /api/lottery/pull</span>
+{
+  <span style="color: #9cdcfe;">"type"</span>: <span style="color: #ce9178;">"ssq"</span>,
+  <span style="color: #9cdcfe;">"mode"</span>: <span style="color: #ce9178;">"issue"</span>,           <span style="color: #6a9955;">-- "issue" | "date_range"</span>
+  <span style="color: #9cdcfe;">"issues"</span>: [<span style="color: #ce9178;">"2024001"</span>, <span style="color: #ce9178;">"2024002"</span>],  <span style="color: #6a9955;">-- mode=issue 时使用</span>
+  <span style="color: #9cdcfe;">"start_date"</span>: <span style="color: #ce9178;">"2024-01-01"</span>,    <span style="color: #6a9955;">-- mode=date_range 时使用</span>
+  <span style="color: #9cdcfe;">"end_date"</span>: <span style="color: #ce9178;">"2024-01-31"</span>,
+  <span style="color: #9cdcfe;">"force_update"</span>: <span style="color: #569cd6;">false</span>,        <span style="color: #6a9955;">-- 是否强制更新已存在数据</span>
+  <span style="color: #9cdcfe;">"source"</span>: <span style="color: #ce9178;">"third_party"</span>       <span style="color: #6a9955;">-- 数据源优先级</span>
+}
+
+<span style="color: #569cd6;">Response (无冲突):</span>
+{
+  <span style="color: #9cdcfe;">"success"</span>: <span style="color: #569cd6;">true</span>,
+  <span style="color: #9cdcfe;">"pulled"</span>: <span style="color: #b5cea8;">2</span>,
+  <span style="color: #9cdcfe;">"skipped"</span>: <span style="color: #b5cea8;">0</span>,
+  <span style="color: #9cdcfe;">"updated"</span>: <span style="color: #b5cea8;">0</span>
+}
+
+<span style="color: #569cd6;">Response (有冲突，需要确认):</span>
+{
+  <span style="color: #9cdcfe;">"success"</span>: <span style="color: #569cd6;">false</span>,
+  <span style="color: #9cdcfe;">"conflict"</span>: <span style="color: #569cd6;">true</span>,
+  <span style="color: #9cdcfe;">"message"</span>: <span style="color: #ce9178;">"发现已存在的数据"</span>,
+  <span style="color: #9cdcfe;">"existing_data"</span>: [
+    {
+      <span style="color: #9cdcfe;">"issue"</span>: <span style="color: #ce9178;">"2024001"</span>,
+      <span style="color: #9cdcfe;">"source"</span>: <span style="color: #ce9178;">"official"</span>,
+      <span style="color: #9cdcfe;">"draw_date"</span>: <span style="color: #ce9178;">"2024-01-02"</span>,
+      <span style="color: #9cdcfe;">"red_balls"</span>: <span style="color: #ce9178;">"[01,05,10,15,20,30]"</span>,
+      <span style="color: #9cdcfe;">"blue_ball"</span>: <span style="color: #ce9178;">"03"</span>
+    }
+  ],
+  <span style="color: #9cdcfe;">"missing_data"</span>: [<span style="color: #ce9178;">"2024002"</span>]
+}
+    </pre>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>数据源适配器设计</h3>
+  <div style="background: #2d2d2d; padding: 20px; border-radius: 8px;">
+    <h4 style="color: #569cd6; margin: 0 0 15px 0;">支持的数据源</h4>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+      <div style="background: #1e1e1e; padding: 15px; border-radius: 6px;">
+        <h5 style="color: #4ec9b0; margin: 0 0 10px 0;">官方 API</h5>
+        <ul style="margin: 0; padding-left: 20px; color: #d4d4d4; font-size: 13px;">
+          <li>中国福利彩票 (cwl.gov.cn)</li>
+          <li>中国体育彩票 (lottery.gov.cn)</li>
+          <li>实时数据，权威可靠</li>
+          <li>有频率限制，需缓存</li>
+        </ul>
+      </div>
+      <div style="background: #1e1e1e; padding: 15px; border-radius: 6px;">
+        <h5 style="color: #4ec9b0; margin: 0 0 10px 0;">第三方 API</h5>
+        <ul style="margin: 0; padding-left: 20px; color: #d4d4d4; font-size: 13px;">
+          <li>500.com / zhcw.com</li>
+          <li>opencai.net</li>
+          <li>历史数据丰富</li>
+          <li>批量拉取效率高</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>前端交互流程</h3>
+  <div style="background: #2d2d2d; padding: 20px; border-radius: 8px;">
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="background: #569cd6; color: #1e1e1e; padding: 8px 16px; border-radius: 20px; font-weight: bold; min-width: 80px; text-align: center;">步骤 1</div>
+        <div style="color: #d4d4d4;">用户选择拉取方式（按期号/按日期范围）</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="background: #569cd6; color: #1e1e1e; padding: 8px 16px; border-radius: 20px; font-weight: bold; min-width: 80px; text-align: center;">步骤 2</div>
+        <div style="color: #d4d4d4;">系统调用 <code style="background: #1e1e1e; padding: 2px 6px; border-radius: 3px;">check-exists</code> 预检查</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="background: #569cd6; color: #1e1e1e; padding: 8px 16px; border-radius: 20px; font-weight: bold; min-width: 80px; text-align: center;">步骤 3</div>
+        <div style="color: #d4d4d4;">
+          <strong>无冲突：</strong>直接拉取并显示结果<br/>
+          <strong>有冲突：</strong>弹窗提示，显示已存在的数据
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="background: #569cd6; color: #1e1e1e; padding: 8px 16px; border-radius: 20px; font-weight: bold; min-width: 80px; text-align: center;">步骤 4</div>
+        <div style="color: #d4d4d4;">用户选择：跳过已存在 / 强制更新全部 / 选择性更新</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="background: #569cd6; color: #1e1e1e; padding: 8px 16px; border-radius: 20px; font-weight: bold; min-width: 80px; text-align: center;">步骤 5</div>
+        <div style="color: #d4d4d4;">执行拉取，显示进度和结果</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>冲突处理弹窗设计</h3>
+  <div style="background: #2d2d2d; padding: 20px; border-radius: 8px;">
+    <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #404040;">
+      <h4 style="color: #d4d4d4; margin: 0 0 15px 0;">⚠️ 发现已存在的数据</h4>
+      <p style="color: #808080; margin: 0 0 15px 0;">以下期号的数据已存在，是否更新？</p>
+      <div style="background: #2d2d2d; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+        <table style="width: 100%; border-collapse: collapse; color: #d4d4d4; font-size: 13px;">
+          <tr style="border-bottom: 1px solid #404040;">
+            <td style="padding: 8px; font-weight: bold;">期号</td>
+            <td style="padding: 8px; font-weight: bold;">来源</td>
+            <td style="padding: 8px; font-weight: bold;">开奖日期</td>
+            <td style="padding: 8px; font-weight: bold;">操作</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #404040;">
+            <td style="padding: 8px;">2024001</td>
+            <td style="padding: 8px;"><span style="background: #0e639c; padding: 2px 8px; border-radius: 10px; font-size: 12px;">官方</span></td>
+            <td style="padding: 8px;">2024-01-02</td>
+            <td style="padding: 8px;">
+              <button style="background: #404040; color: #d4d4d4; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer;">跳过</button>
+              <button style="background: #0e639c; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; margin-left: 8px;">更新</button>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button style="background: #404040; color: #d4d4d4; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer;">全部跳过</button>
+        <button style="background: #0e639c; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer;">全部更新</button>
+      </div>
+    </div>
+  </div>
+</div>
