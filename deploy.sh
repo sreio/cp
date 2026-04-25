@@ -7,12 +7,14 @@ echo "========================"
 # 部署 Worker
 echo "📦 部署 Worker..."
 cd worker
+npm install --production=false
 npm run deploy
 cd ..
 
 # 构建并部署前端
 echo "🌐 构建前端..."
 cd frontend
+npm install
 npm run build
 
 echo "📤 部署到 Cloudflare Pages..."
