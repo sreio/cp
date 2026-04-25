@@ -11,6 +11,25 @@
 - **Webhook 通知** — 新开奖结果自动推送到钉钉、企微、飞书或自定义 Webhook
 - **定时任务** — Cloudflare Cron Trigger 自动拉取最新开奖数据
 
+## 一键部署
+
+点击按钮直接部署到 Cloudflare，无需克隆仓库：
+
+| 组件 | 部署按钮 | 说明 |
+|------|---------|------|
+| API Worker | [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/sreio/cp/tree/worker-api) | 后端 API + 定时任务 |
+| 前端 | [![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/sreio/cp/tree/cp-frontend) | Vue 3 前端界面 |
+
+**部署后配置：**
+
+1. **Worker 部署后：**
+   - 创建 D1 数据库：`wrangler d1 create cp-lottery`
+   - 在 Worker 设置中绑定 D1 数据库（变量名 `DB`）
+   - 运行数据库迁移：`wrangler d1 execute cp-lottery --remote --file=./src/db/schema.sql`
+
+2. **前端部署后：**
+   - 设置环境变量 `VITE_API_BASE` 为 Worker 的 URL（如 `https://cp-worker.xxx.workers.dev/api`）
+
 ## 技术栈
 
 | 层级 | 技术 |
