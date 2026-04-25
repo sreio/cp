@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import type { LotteryType } from '../api/types';
 
-const props = defineProps<{ type: LotteryType }>();
+defineProps<{ type: LotteryType }>();
 
 const actions = [
   { icon: '🎯', label: '推荐号码', handler: () => {} },
