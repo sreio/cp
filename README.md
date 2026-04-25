@@ -4,7 +4,7 @@
 
 ## 一键部署
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/OWNER/cp/tree/worker-api)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button.svg)](https://deploy.workers.cloudflare.com/?url=https://github.com/sreio/cp/tree/worker-api)
 
 部署后需要：
 1. 创建 D1 数据库：`wrangler d1 create cp-lottery`
