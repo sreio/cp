@@ -71,10 +71,16 @@ export function analyzeFeatures(draws: (SSQDraw | DLTDraw | SmallDraw)[], type: 
   });
 }
 
+function parseBalls(s: string): string[] {
+  if (!s) return [];
+  try { const arr = JSON.parse(s); if (Array.isArray(arr)) return arr.map(String); } catch {}
+  return s.split(',').map(v => v.trim()).filter(Boolean);
+}
+
 function extractNumbers(draw: SSQDraw | DLTDraw | SmallDraw, type: LotteryType): string[] {
-  if (type === 'ssq') return JSON.parse((draw as SSQDraw).red_balls);
-  if (type === 'dlt') return JSON.parse((draw as DLTDraw).front_zone);
-  return JSON.parse((draw as SmallDraw).numbers).map(String);
+  if (type === 'ssq') return parseBalls((draw as SSQDraw).red_balls);
+  if (type === 'dlt') return parseBalls((draw as DLTDraw).front_zone);
+  return parseBalls((draw as SmallDraw).numbers);
 }
 
 function getAllPossibleNumbers(type: LotteryType): string[] {

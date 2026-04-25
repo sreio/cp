@@ -127,10 +127,11 @@ export class D1Adapter implements DatabaseAdapter {
 
   async getDrawsForAnalysis(lottery_type: LotteryType, range: number) {
     const table = lottery_type === 'ssq' ? 'ssq_draws' : lottery_type === 'dlt' ? 'dlt_draws' : 'small_draws';
-    const where = lottery_type === 'fc3d' || lottery_type === 'pl3' || lottery_type === 'pl5' ? 'WHERE type = ?' : '';
-    const params = where ? [lottery_type, range] : [range];
-    const sql = `SELECT * FROM ${table} ${where} ORDER BY draw_date DESC LIMIT ?`;
-    return this.all(sql).bind(...params);
+    const isSmall = lottery_type === 'fc3d' || lottery_type === 'pl3' || lottery_type === 'pl5';
+    if (isSmall) {
+      return this.all(this.db.prepare(`SELECT * FROM ${table} WHERE type = ? ORDER BY draw_date DESC LIMIT ?`).bind(lottery_type, range));
+    }
+    return this.all(this.db.prepare(`SELECT * FROM ${table} ORDER BY draw_date DESC LIMIT ?`).bind(range));
   }
 
   async checkDrawExists(lottery_type: LotteryType, issues: string[]) {
