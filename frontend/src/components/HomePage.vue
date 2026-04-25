@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import type { LotteryType } from '../api/types';
 import SalesBanner from './SalesBanner.vue';
 import LatestDraw from './LatestDraw.vue';
@@ -31,7 +31,7 @@ import DrawDetail from './DrawDetail.vue';
 const props = withDefaults(defineProps<{ lotteryType?: LotteryType }>(), {
   lotteryType: 'ssq',
 });
-const currentType = props.lotteryType;
+const currentType = computed(() => props.lotteryType);
 
 const detailVisible = ref(false);
 const detailIssue = ref('');
