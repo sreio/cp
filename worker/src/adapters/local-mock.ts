@@ -10,8 +10,7 @@ export class LocalMockAdapter implements DataSourceAdapter {
   }
 
   async fetchByIssue(type: LotteryType, issue: string): Promise<DrawData | null> {
-    const draws = this.generateDraws(type, 100);
-    return draws.find(d => d.issue === issue) ?? null;
+    return this.generateDraw(type, issue);
   }
 
   async fetchByDateRange(type: LotteryType, startDate: string, endDate: string): Promise<DrawData[]> {

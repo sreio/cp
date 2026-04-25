@@ -109,6 +109,10 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
 
   // ========== 大乐透 API ==========
 
+  public async fetchDLTPage(pageNo: number, pageSize: number): Promise<DrawData[]> {
+    return this.fetchDLT(pageNo, pageSize);
+  }
+
   private async fetchDLT(pageNo: number, pageSize: number): Promise<DrawData[]> {
     const params = new URLSearchParams({
       gameNo: '85',

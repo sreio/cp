@@ -30,6 +30,10 @@
         <span class="icon">📥</span>
         <span>{{ loading.pull ? '拉取中...' : '拉取数据' }}</span>
       </button>
+      <button class="action-btn" @click="showPullAll = true">
+        <span class="icon">📊</span>
+        <span>拉取全部历史</span>
+      </button>
     </div>
     <div v-if="result" class="result">
       <div class="result-header">
@@ -42,6 +46,7 @@
 
     <NumberChecker :visible="showNumberChecker" @close="showNumberChecker = false" />
     <PrizeCalculator :visible="showPrizeCalc" @close="showPrizeCalc = false" />
+    <PullProgress :visible="showPullAll" :type="type" @close="showPullAll = false" />
   </div>
 </template>
 
@@ -51,6 +56,7 @@ import type { LotteryType } from '../api/types';
 import { recommendNumbers, pullData } from '../api/client';
 import NumberChecker from './NumberChecker.vue';
 import PrizeCalculator from './PrizeCalculator.vue';
+import PullProgress from './PullProgress.vue';
 
 const props = defineProps<{ type: LotteryType }>();
 
@@ -59,6 +65,7 @@ const resultTitle = ref('');
 const tip = ref('');
 const showNumberChecker = ref(false);
 const showPrizeCalc = ref(false);
+const showPullAll = ref(false);
 const loading = reactive({ recommend: false, pull: false });
 
 function showTip(msg: string) {
