@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from '../db/adapter';
 import type { LotteryType } from '../db/types';
 import type { DrawData } from '../adapters/types';
 import { ThirdPartyAdapter } from '../adapters/third-party';
+import { LocalMockAdapter } from '../adapters/local-mock';
 
 export interface PullResult {
   success: boolean;
@@ -39,7 +40,6 @@ export async function pullData(
   issues: string[],
   forceUpdate: boolean = false,
 ): Promise<PullResult> {
-  const adapter = new ThirdPartyAdapter();
   const result: PullResult = { success: true, pulled: 0, skipped: 0, updated: 0, errors: [] };
 
   for (const issue of issues) {
@@ -51,13 +51,38 @@ export async function pullData(
         continue;
       }
 
-      const drawData = await adapter.fetchByIssue(type, issue);
+      let drawData: DrawData | null = null;
+      let usedAdapter = '';
+
+      // 尝试使用第三方 API
+      try {
+        const adapter = new ThirdPartyAdapter();
+        drawData = await adapter.fetchByIssue(type, issue);
+        usedAdapter = 'third_party';
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : '未知错误';
+        console.warn(`第三方 API 失败，尝试使用本地模拟数据: ${errorMsg}`);
+
+        // 回退到本地模拟数据
+        try {
+          const mockAdapter = new LocalMockAdapter();
+          drawData = await mockAdapter.fetchByIssue(type, issue);
+          usedAdapter = 'local_mock';
+          if (!result.errors.some(e => e.includes('注意:'))) {
+            result.errors.push(`注意: 使用本地模拟数据（第三方 API 不可用）`);
+          }
+        } catch (mockErr) {
+          result.errors.push(`期号 ${issue}: ${errorMsg}`);
+          continue;
+        }
+      }
+
       if (!drawData) {
         result.errors.push(`期号 ${issue}: 数据源中未找到`);
         continue;
       }
 
-      await saveDraw(db, drawData);
+      await saveDraw(db, { ...drawData, source: usedAdapter });
 
       if (existing.length > 0) {
         result.updated++;
@@ -79,32 +104,49 @@ export async function pullByDateRange(
   endDate: string,
   forceUpdate: boolean = false,
 ): Promise<PullResult> {
-  const adapter = new ThirdPartyAdapter();
   const result: PullResult = { success: true, pulled: 0, skipped: 0, updated: 0, errors: [] };
 
+  let draws: DrawData[] = [];
+  let usedAdapter = '';
+
+  // 尝试使用第三方 API
   try {
-    const draws = await adapter.fetchByDateRange(type, startDate, endDate);
-
-    for (const drawData of draws) {
-      try {
-        const existing = await db.checkDrawExists(type, [drawData.issue]);
-
-        if (existing.length > 0 && !forceUpdate) {
-          result.skipped++;
-          continue;
-        }
-
-        await saveDraw(db, drawData);
-
-        if (existing.length > 0) result.updated++;
-        else result.pulled++;
-      } catch (err) {
-        result.errors.push(`期号 ${drawData.issue}: ${err instanceof Error ? err.message : '未知错误'}`);
-      }
-    }
+    const adapter = new ThirdPartyAdapter();
+    draws = await adapter.fetchByDateRange(type, startDate, endDate);
+    usedAdapter = 'third_party';
   } catch (err) {
-    result.success = false;
-    result.errors.push(`拉取日期范围失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    const errorMsg = err instanceof Error ? err.message : '未知错误';
+    console.warn(`第三方 API 失败，尝试使用本地模拟数据: ${errorMsg}`);
+
+    // 回退到本地模拟数据
+    try {
+      const mockAdapter = new LocalMockAdapter();
+      draws = await mockAdapter.fetchByDateRange(type, startDate, endDate);
+      usedAdapter = 'local_mock';
+      result.errors.push(`注意: 使用本地模拟数据（第三方 API 不可用: ${errorMsg}）`);
+    } catch (mockErr) {
+      result.success = false;
+      result.errors.push(`拉取日期范围失败: ${errorMsg}`);
+      return result;
+    }
+  }
+
+  for (const drawData of draws) {
+    try {
+      const existing = await db.checkDrawExists(type, [drawData.issue]);
+
+      if (existing.length > 0 && !forceUpdate) {
+        result.skipped++;
+        continue;
+      }
+
+      await saveDraw(db, { ...drawData, source: usedAdapter });
+
+      if (existing.length > 0) result.updated++;
+      else result.pulled++;
+    } catch (err) {
+      result.errors.push(`期号 ${drawData.issue}: ${err instanceof Error ? err.message : '未知错误'}`);
+    }
   }
 
   return result;
@@ -113,10 +155,14 @@ export async function pullByDateRange(
 async function saveDraw(db: DatabaseAdapter, draw: DrawData) {
   const { type, issue, draw_date, week, numbers, pool_amount, sales_amount, source, prize_details } = draw;
 
+  // 将号码数组转换为逗号分隔的字符串格式
+  const frontStr = numbers.front.join(',');
+  const backStr = numbers.back.join(',');
+
   if (type === 'ssq') {
     await db.insertSSQDraw({
       issue, draw_date, week: week ?? null,
-      red_balls: JSON.stringify(numbers.front),
+      red_balls: frontStr,
       blue_ball: numbers.back[0] ?? '00',
       pool_amount: pool_amount ?? null,
       sales_amount: sales_amount ?? null,
@@ -126,8 +172,8 @@ async function saveDraw(db: DatabaseAdapter, draw: DrawData) {
   } else if (type === 'dlt') {
     await db.insertDLTDraw({
       issue, draw_date, week: week ?? null,
-      front_zone: JSON.stringify(numbers.front),
-      back_zone: JSON.stringify(numbers.back),
+      front_zone: frontStr,
+      back_zone: backStr,
       pool_amount: pool_amount ?? null,
       sales_amount: sales_amount ?? null,
       source,
@@ -136,7 +182,7 @@ async function saveDraw(db: DatabaseAdapter, draw: DrawData) {
   } else {
     await db.insertSmallDraw({
       type, issue, draw_date,
-      numbers: JSON.stringify([...numbers.front, ...numbers.back]),
+      numbers: frontStr,
       sales_amount: sales_amount ?? null,
       source,
       prize_details: prize_details ? JSON.stringify(prize_details) : null,

@@ -42,12 +42,18 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
 
   private async fetchAPI(type: LotteryType, path: string): Promise<DrawData[]> {
     const url = `${this.baseUrl}/lottery/${type}/${path}`;
-    const resp = await fetch(url, {
-      headers: { 'User-Agent': 'LotteryHelper/1.0' },
-    });
-    if (!resp.ok) return [];
-    const json = await resp.json() as any;
-    return this.normalizeResponse(type, json);
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'LotteryHelper/1.0' },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!resp.ok) return [];
+      const json = await resp.json() as any;
+      return this.normalizeResponse(type, json);
+    } catch (err) {
+      console.error(`Failed to fetch from ${url}:`, err);
+      throw new Error(`数据源连接失败: ${err instanceof Error ? err.message : '网络错误'}`);
+    }
   }
 
   private normalizeResponse(type: LotteryType, raw: any): DrawData[] {
