@@ -6,5 +6,7 @@ export default createRouter({
   routes: [
     { path: '/', component: () => import('./components/HomePage.vue') },
     { path: '/analysis', component: AnalysisPage },
+    { path: '/tools/number', component: () => import('./components/NumberTools.vue') },
+    { path: '/tools/bet', component: () => import('./components/BettingTools.vue') },
   ],
 });

@@ -14,14 +14,14 @@
         <span class="icon">💰</span>
         <span>奖金计算</span>
       </button>
-      <button class="action-btn" @click="showTip('号码工具功能开发中')">
+      <router-link to="/tools/number" class="action-btn">
         <span class="icon">🔧</span>
         <span>号码工具</span>
-      </button>
-      <button class="action-btn" @click="showTip('投注工具功能开发中')">
+      </router-link>
+      <router-link to="/tools/bet" class="action-btn">
         <span class="icon">🎰</span>
         <span>投注工具</span>
-      </button>
+      </router-link>
       <router-link to="/analysis" class="action-btn">
         <span class="icon">📊</span>
         <span>数据分析</span>
@@ -42,8 +42,6 @@
       </div>
       <pre>{{ result }}</pre>
     </div>
-    <div v-if="tip" class="tip" @click="tip = ''">{{ tip }}</div>
-
     <NumberChecker :visible="showNumberChecker" @close="showNumberChecker = false" />
     <PrizeCalculator :visible="showPrizeCalc" @close="showPrizeCalc = false" />
     <PullProgress :visible="showPullAll" :type="type" @close="showPullAll = false" />
@@ -62,16 +60,10 @@ const props = defineProps<{ type: LotteryType }>();
 
 const result = ref('');
 const resultTitle = ref('');
-const tip = ref('');
 const showNumberChecker = ref(false);
 const showPrizeCalc = ref(false);
 const showPullAll = ref(false);
 const loading = reactive({ recommend: false, pull: false });
-
-function showTip(msg: string) {
-  tip.value = msg;
-  setTimeout(() => { tip.value = ''; }, 2000);
-}
 
 async function handleRecommend() {
   loading.recommend = true;
@@ -103,9 +95,13 @@ async function handlePull() {
       start_date: start,
       end_date: end,
     });
-    result.value = `成功: ${data.pulled} 条\n跳过: ${data.skipped} 条\n更新: ${data.updated} 条`;
+    if (data.pulled === 0 && data.skipped > 0) {
+      result.value = `最近30天数据已存在（${data.skipped} 条），无需重复拉取`;
+    } else {
+      result.value = `新增: ${data.pulled} 条\n跳过: ${data.skipped} 条\n更新: ${data.updated} 条`;
+    }
     if (data.errors?.length) {
-      result.value += '\n错误:\n' + data.errors.join('\n');
+      result.value += '\n' + data.errors.join('\n');
     }
   } catch (e: any) {
     result.value = '拉取失败: ' + (e.message || e);
@@ -146,10 +142,5 @@ h3 { margin-bottom: 16px; font-size: 16px; }
 .result pre {
   font-size: 13px; color: #98c379;
   white-space: pre-wrap; word-break: break-all;
-}
-.tip {
-  margin-top: 12px; padding: 10px; text-align: center;
-  background: #1e1e1e; border-radius: 6px; color: #808080; font-size: 13px;
-  cursor: pointer;
 }
 </style>

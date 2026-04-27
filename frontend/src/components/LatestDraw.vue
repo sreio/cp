@@ -15,7 +15,7 @@
       </template>
     </div>
     <div class="meta">
-      <span v-if="draw.draw_date">开奖日期：{{ draw.draw_date }}{{ draw.week ? '（星期' + draw.week + '）' : '' }}</span>
+      <span v-if="draw.draw_date">开奖日期：{{ draw.draw_date }}{{ draw.week ? '（' + draw.week + '）' : '' }}</span>
       <span v-if="draw.pool_amount">奖池金额：¥{{ formatMoney(draw.pool_amount) }}</span>
       <span v-if="draw.sales_amount">销售额：¥{{ formatMoney(draw.sales_amount) }}</span>
     </div>
@@ -84,7 +84,7 @@ function parseBalls(s: string): string[] {
   try { const arr = JSON.parse(s); if (Array.isArray(arr)) return arr; } catch {}
   return s.split(',').map(v => v.trim()).filter(Boolean);
 }
-function formatMoney(n: number) { return (n / 100000000).toFixed(2) + '亿'; }
+function formatMoney(n: number) { return n.toLocaleString(); }
 function formatPrize(n: number) { return n.toLocaleString(); }
 </script>
 

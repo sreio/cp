@@ -2,7 +2,6 @@ import type { DatabaseAdapter } from '../db/adapter';
 import type { LotteryType } from '../db/types';
 import type { DrawData } from '../adapters/types';
 import { ThirdPartyAdapter } from '../adapters/third-party';
-import { LocalMockAdapter } from '../adapters/local-mock';
 import { getTask, updateTask, type PullTask } from './task-manager';
 
 export interface PullResult {
@@ -53,29 +52,15 @@ export async function pullData(
       }
 
       let drawData: DrawData | null = null;
-      let usedAdapter = '';
 
-      // 尝试使用官方 API
+      // 使用官方 API
       try {
         const adapter = new ThirdPartyAdapter();
         drawData = await adapter.fetchByIssue(type, issue);
-        usedAdapter = 'official';
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : '未知错误';
-        console.warn(`官方 API 失败，使用本地模拟数据: ${errorMsg}`);
-
-        // 回退到本地模拟数据
-        try {
-          const mockAdapter = new LocalMockAdapter();
-          drawData = await mockAdapter.fetchByIssue(type, issue);
-          usedAdapter = 'local_mock';
-          if (!result.errors.some(e => e.includes('提示:'))) {
-            result.errors.push(`提示: 官方 API 不可用（${errorMsg}），已使用模拟数据`);
-          }
-        } catch (mockErr) {
-          result.errors.push(`期号 ${issue}: ${errorMsg}`);
-          continue;
-        }
+        result.errors.push(`期号 ${issue}: ${errorMsg}`);
+        continue;
       }
 
       if (!drawData) {
@@ -83,7 +68,7 @@ export async function pullData(
         continue;
       }
 
-      await saveDraw(db, { ...drawData, source: usedAdapter });
+      await saveDraw(db, { ...drawData, source: 'official' });
 
       if (existing.length > 0) {
         result.updated++;
@@ -108,28 +93,16 @@ export async function pullByDateRange(
   const result: PullResult = { success: true, pulled: 0, skipped: 0, updated: 0, errors: [] };
 
   let draws: DrawData[] = [];
-  let usedAdapter = '';
 
-  // 尝试使用官方 API
+  // 使用官方 API
   try {
     const adapter = new ThirdPartyAdapter();
     draws = await adapter.fetchByDateRange(type, startDate, endDate);
-    usedAdapter = 'official';
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : '未知错误';
-    console.warn(`官方 API 失败，使用本地模拟数据: ${errorMsg}`);
-
-    // 回退到本地模拟数据
-    try {
-      const mockAdapter = new LocalMockAdapter();
-      draws = await mockAdapter.fetchByDateRange(type, startDate, endDate);
-      usedAdapter = 'local_mock';
-      result.errors.push(`提示: 官方 API 不可用（${errorMsg}），已使用模拟数据`);
-    } catch (mockErr) {
-      result.success = false;
-      result.errors.push(`拉取失败: ${errorMsg}`);
-      return result;
-    }
+    result.success = false;
+    result.errors.push(`拉取失败: ${errorMsg}`);
+    return result;
   }
 
   for (const drawData of draws) {
@@ -141,7 +114,7 @@ export async function pullByDateRange(
         continue;
       }
 
-      await saveDraw(db, { ...drawData, source: usedAdapter });
+      await saveDraw(db, { ...drawData, source: 'official' });
 
       if (existing.length > 0) result.updated++;
       else result.pulled++;
@@ -227,11 +200,10 @@ function sleep(ms: number): Promise<void> {
  */
 export async function processBatch(db: DatabaseAdapter, taskId: string): Promise<PullTask | null> {
   const task = getTask(taskId);
-  if (!task || task.status !== 'running') return task;
+  if (!task || task.status !== 'running') return task ?? null;
 
   const { type } = task;
   const adapter = new ThirdPartyAdapter();
-  const mockAdapter = new LocalMockAdapter();
 
   try {
     let draws: DrawData[] = [];
@@ -246,22 +218,27 @@ export async function processBatch(db: DatabaseAdapter, taskId: string): Promise
         return task;
       }
 
-      for (const issue of issues) {
+      // 使用官方 API 拉取（添加风控缓冲）
+      for (let i = 0; i < issues.length; i++) {
+        // 每 3 个请求加 1 秒延迟，避免触发风控
+        if (i > 0 && i % 3 === 0) {
+          await sleep(1000);
+        }
         try {
-          const draw = await adapter.fetchByIssue(type, issue);
+          const draw = await adapter.fetchByIssue(type, issues[i]);
           if (draw) {
             draws.push({ ...draw, source: 'official' });
             usedAdapter = 'official';
           }
-        } catch {
-          // 官方 API 失败，尝试模拟数据
-          const mock = await mockAdapter.fetchByIssue(type, issue);
-          if (mock) {
-            draws.push({ ...mock, source: 'local_mock' });
-            usedAdapter = 'local_mock';
+        } catch (err) {
+          // 官方 API 失败，记录错误但继续
+          const errorMsg = err instanceof Error ? err.message : '未知错误';
+          if (!task.errors.some(e => e.includes('官方 API'))) {
+            task.errors.push(`官方 API 错误: ${errorMsg}`);
           }
         }
       }
+
       // 更新 cursor 到最后一个 issue 的下一个
       const lastIssue = issues[issues.length - 1];
       const lastYear = parseInt(lastIssue.slice(0, 4));
@@ -280,12 +257,9 @@ export async function processBatch(db: DatabaseAdapter, taskId: string): Promise
         const pageDraws = await adapter.fetchDLTPage(pageNo, 30);
         draws = pageDraws.map(d => ({ ...d, source: 'official' }));
         usedAdapter = 'official';
-      } catch {
-        // 失败时用模拟数据
-        const mockDraws = await mockAdapter.fetchByDateRange(type, '2007-01-01', '2026-12-31');
-        const start = (pageNo - 1) * 30;
-        draws = mockDraws.slice(start, start + 30).map(d => ({ ...d, source: 'local_mock' }));
-        usedAdapter = 'local_mock';
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : '未知错误';
+        task.errors.push(`大乐透 API 错误: ${errorMsg}`);
       }
       task._cursor = pageNo;
       if (draws.length === 0) {
@@ -294,17 +268,10 @@ export async function processBatch(db: DatabaseAdapter, taskId: string): Promise
       }
 
     } else {
-      // FC3D/PL3/PL5：使用模拟数据
-      const startIssue = task._cursor ?? 0;
-      const mockDraws = await mockAdapter.fetchByDateRange(type, '2004-01-01', '2026-12-31');
-      const batch = mockDraws.slice(startIssue, startIssue + BATCH_SIZE);
-      draws = batch.map(d => ({ ...d, source: 'local_mock' }));
-      usedAdapter = 'local_mock';
-      task._cursor = startIssue + BATCH_SIZE;
-      if (batch.length === 0) {
-        task.status = 'completed';
-        return task;
-      }
+      // FC3D/PL3/PL5：暂不支持官方 API
+      task.errors.push(`${type} 暂不支持官方 API，请手动添加数据`);
+      task.status = 'completed';
+      return task;
     }
 
     // 保存到数据库

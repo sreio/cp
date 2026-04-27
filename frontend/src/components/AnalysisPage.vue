@@ -115,11 +115,8 @@ import type { LotteryType } from '../api/types';
 import { getHotCold, getMissing, getFeatures } from '../api/client';
 import * as echarts from 'echarts';
 
-const props = withDefaults(defineProps<{ lotteryType?: LotteryType }>(), {
-  lotteryType: 'ssq',
-});
-
-const currentType = ref<LotteryType>(props.lotteryType);
+// 分析页面有独立的类型选择，不与父组件同步
+const currentType = ref<LotteryType>('ssq');
 const range = ref(30);
 const hotColdData = ref<{ hot: any[]; cold: any[] }>({ hot: [], cold: [] });
 const missingData = ref<any[]>([]);

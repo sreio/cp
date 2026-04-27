@@ -82,10 +82,17 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
 
     const dateStr = (item.date ?? '').replace(/\(.*\)/, '').trim();
 
+    // 提取星期几：优先用 week 字段，否则从 date 中提取
+    let week: string | undefined = item.week ?? undefined;
+    if (!week) {
+      const m = item.date?.match(/\(([^)]+)\)/);
+      if (m) week = '星期' + m[1];
+    }
+
     const prizeDetails: PrizeDetailData[] = (item.prizegrades ?? []).map((g: any) => ({
       prize_level: this.getSSQPrizeLevel(g.type),
-      prize_count: Number(g.typenum ?? 0),
-      prize_amount: Number(g.typemoney ?? 0),
+      prize_count: Number(String(g.typenum ?? '0').replace(/,/g, '')),
+      prize_amount: Number(String(g.typemoney ?? '0').replace(/,/g, '')),
       additional_count: 0,
       additional_amount: 0,
     }));
@@ -94,6 +101,7 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
       type: 'ssq',
       issue: String(item.code ?? ''),
       draw_date: dateStr,
+      week,
       numbers: { front: redBalls, back: blueBalls },
       pool_amount: this.parseAmount(item.poolmoney),
       sales_amount: this.parseAmount(item.sales),
@@ -191,16 +199,44 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
 
     const dateStr = (item.lotteryDrawTime ?? '').slice(0, 10);
 
+    // 解析星期几
+    let week: string | undefined;
+    if (item.lotteryDrawTime) {
+      const d = new Date(item.lotteryDrawTime);
+      if (!isNaN(d.getTime())) {
+        week = '星期' + ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+      }
+    }
+
+    // 解析奖级详情
+    const prizeDetails: PrizeDetailData[] = [];
+    const prizeList = item.prizeLevelList ?? item.prizeLevelInfoList ?? [];
+    for (const p of prizeList) {
+      prizeDetails.push({
+        prize_level: this.getDLTPrizeLevel(p.prizeLevel ?? p.level ?? 0),
+        prize_count: Number(String(p.prizeCount ?? p.winCount ?? '0').replace(/,/g, '')),
+        prize_amount: Number(String(p.prizeAmount ?? p.singleBonus ?? '0').replace(/,/g, '')),
+        additional_count: Number(String(p.addPrizeCount ?? p.addWinCount ?? '0').replace(/,/g, '')),
+        additional_amount: Number(String(p.addPrizeAmount ?? p.addSingleBonus ?? '0').replace(/,/g, '')),
+      });
+    }
+
     return {
       type: 'dlt',
       issue: String(item.lotteryDrawNum ?? ''),
       draw_date: dateStr,
+      week,
       numbers: { front: frontBalls, back: backBalls },
       pool_amount: this.parseAmount(item.lotteryPoolAmount),
       sales_amount: this.parseAmount(item.lotterySaleAmount),
       source: 'official',
-      prize_details: [],
+      prize_details: prizeDetails,
     };
+  }
+
+  private getDLTPrizeLevel(level: number): string {
+    const map: Record<number, string> = { 1: '一等奖', 2: '二等奖', 3: '三等奖', 4: '四等奖', 5: '五等奖', 6: '六等奖', 7: '七等奖', 8: '八等奖', 9: '九等奖' };
+    return map[level] ?? `${level}等奖`;
   }
 
   // ========== 工具方法 ==========
@@ -219,14 +255,20 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
     try {
       const resp = await fetch(url, {
         headers,
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(5000),
+        redirect: 'manual', // 不自动跟随重定向
       });
+
+      // 检测重定向（WAF 拦截）
+      if (resp.status >= 300 && resp.status < 400) {
+        throw new Error('官方 API 被 WAF 拦截（重定向）。请在中国大陆环境下运行。');
+      }
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
         // 检测 WAF 拦截
         if (resp.status === 403 || text.includes('EdgeOne') || text.includes('安全策略')) {
-          throw new Error(`官方 API 被 WAF 拦截 (HTTP ${resp.status})。如果在中国大陆本地运行，应该可以正常访问。`);
+          throw new Error(`官方 API 被 WAF 拦截 (HTTP ${resp.status})。请在中国大陆环境下运行。`);
         }
         throw new Error(`HTTP ${resp.status}`);
       }
@@ -234,7 +276,7 @@ export class ThirdPartyAdapter implements DataSourceAdapter {
       const text = await resp.text();
       // 检测 WAF 返回的 HTML 页面
       if (text.includes('EdgeOne') || text.includes('安全策略') || text.includes('请求已被拦截')) {
-        throw new Error('官方 API 被 WAF 拦截。如果在中国大陆本地运行，应该可以正常访问。');
+        throw new Error('官方 API 被 WAF 拦截。请在中国大陆环境下运行。');
       }
 
       return JSON.parse(text);

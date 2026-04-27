@@ -133,9 +133,19 @@ const smallPrizes = [
 
 <style scoped>
 .prize-hover-trigger { position: relative; cursor: pointer; }
-.trigger-label { color: #e74c3c; font-weight: bold; cursor: pointer; }
+.trigger-label { color: #e74c3c; font-weight: bold; cursor: pointer; padding: 6px 14px; display: inline-block; }
+/* 桥接区域：消除触发器和弹窗之间的间隙 */
+.prize-hover-trigger::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: transparent;
+}
 .popup {
-  display: none; position: absolute; top: 100%; right: 0; margin-top: 12px;
+  display: none; position: absolute; top: calc(100% + 4px); right: 0;
   background: #2d2d2d; border: 1px solid #404040; border-radius: 8px;
   padding: 20px; width: 780px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 100;
 }

@@ -8,7 +8,6 @@
         :class="['tab', { active: lotteryType === tab.value }]"
         @click="$emit('update:lotteryType', tab.value)"
       >{{ tab.label }}</button>
-      <router-link to="/analysis" class="tab">📊 数据分析</router-link>
       <PrizeQueryPopup />
     </nav>
   </header>

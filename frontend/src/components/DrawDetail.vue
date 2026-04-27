@@ -24,8 +24,9 @@
             </template>
           </div>
           <div class="meta">
-            <span>开奖日期：{{ detail.draw?.draw_date }}</span>
-            <span v-if="detail.draw?.pool_amount">奖池：¥{{ formatMoney(detail.draw.pool_amount) }}</span>
+            <span>开奖日期：{{ detail.draw?.draw_date }}{{ detail.draw?.week ? '（' + detail.draw.week + '）' : '' }}</span>
+            <span v-if="detail.draw?.pool_amount">奖池金额：¥{{ formatMoney(detail.draw.pool_amount) }}</span>
+            <span v-if="detail.draw?.sales_amount">销售额：¥{{ formatMoney(detail.draw.sales_amount) }}</span>
           </div>
           <div class="section" v-if="detail.prize_details?.length">
             <h4>奖级详情</h4>
@@ -100,7 +101,7 @@ function splitBalls(s: string): string[] {
   try { const arr = JSON.parse(s); if (Array.isArray(arr)) return arr; } catch {}
   return s.split(',').map(v => v.trim()).filter(Boolean);
 }
-function formatMoney(n: number) { return (n / 100000000).toFixed(2) + '亿'; }
+function formatMoney(n: number) { return n.toLocaleString(); }
 </script>
 
 <style scoped>
